@@ -12,3 +12,4 @@ tower-http = { version = "0.6.6", features = ["cors"] }
 anyhow = "1.0.100"
 reqwest = "0.12.23"
 dotenvy = "0.15.7"
+gemini-rust = "1.4.0"

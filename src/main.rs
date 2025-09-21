@@ -3,6 +3,7 @@ use axum::{
     routing::{get, post},
 };
 
+use crate::clients::gemini::GeminiClient;
 use crate::clients::hevy::HevyClient;
 use crate::config::Config;
 use axum::extract::State;
@@ -14,6 +15,7 @@ use serde::Deserialize;
 struct AppState {
     config: Config,
     hevy_client: HevyClient,
+    gemini_client: GeminiClient,
 }
 
 mod clients;
@@ -83,10 +85,13 @@ async fn main() {
     let config = Config::from_env().expect("Failed to load config");
 
     let hevy_client = HevyClient::new(&config).expect("Failed to create HevyClient");
+    let gemini_client =
+        GeminiClient::new(config.gemini_api_key.clone(), config.gemini_model.clone());
 
     let state = AppState {
         config: config.clone(),
         hevy_client,
+        gemini_client,
     };
 
     let app = Router::new()
