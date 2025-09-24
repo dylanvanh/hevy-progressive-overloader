@@ -14,7 +14,7 @@ impl Config {
     pub fn from_env() -> anyhow::Result<Self> {
         let hevy_api_key = env::var("HEVY_API_KEY")?;
         let webhook_token = env::var("WEBHOOK_TOKEN")?;
-        let port = env::var("PORT")?;
+        let port = env::var("PORT").unwrap_or_else(|_| "3005".to_string());
         let gemini_api_key = env::var("GEMINI_API_KEY")?;
         let gemini_model =
             env::var("GEMINI_MODEL").unwrap_or_else(|_| "gemini-2.5-pro".to_string());

@@ -32,4 +32,3 @@
 
 - Format the file after adding/editing code
 - Use `anyhow::Result<T>` for error handling consistency
-

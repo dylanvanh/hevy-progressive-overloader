@@ -23,6 +23,7 @@ impl GeminiClient {
         Self { client, model }
     }
 
+    #[allow(dead_code)]
     pub async fn generate_text_with_search(&self, prompt: &str) -> Result<String> {
         let google_search_tool = Tool::google_search();
         let request_builder = self
@@ -30,6 +31,15 @@ impl GeminiClient {
             .generate_content()
             .with_user_message(prompt)
             .with_tool(google_search_tool);
+
+        let response = request_builder.execute().await?;
+
+        let text = response.text();
+        Ok(text)
+    }
+
+    pub async fn generate_text(&self, prompt: &str) -> Result<String> {
+        let request_builder = self.client.generate_content().with_user_message(prompt);
 
         let response = request_builder.execute().await?;
 

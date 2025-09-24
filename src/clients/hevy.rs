@@ -1,5 +1,8 @@
-use crate::clients::models::requests::UpdateRoutineRequest;
-use crate::clients::models::responses::{RoutineResponse, WorkoutResponse};
+use crate::clients::models::requests::{RoutineUpdate, UpdateRoutineRequest};
+use crate::clients::models::responses::{
+    RoutineApiResponse, RoutineResponse, RoutineUpdateApiResponse, WorkoutResponse,
+    WorkoutsListResponse,
+};
 use crate::config::Config;
 use anyhow::Result;
 use reqwest::{Client, Url};
@@ -49,6 +52,32 @@ impl HevyClient {
         Ok(api_response)
     }
 
+    pub async fn get_workouts(&self, page: i32, page_size: i32) -> Result<WorkoutsListResponse> {
+        let api_key = &self.api_key;
+        let mut url = self.base.join("/v1/workouts")?;
+        url.query_pairs_mut()
+            .append_pair("page", &page.to_string())
+            .append_pair("pageSize", &page_size.to_string());
+
+        let response = self.http.get(url).header("api-key", api_key).send().await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await?;
+            return Err(anyhow::anyhow!(
+                "API request failed with status {}: {}",
+                status,
+                body
+            ));
+        }
+
+        let body = response.text().await?;
+        let api_response: WorkoutsListResponse = serde_json::from_str(&body)
+            .map_err(|e| anyhow::anyhow!("Failed to parse workouts list response: {}", e))?;
+
+        Ok(api_response)
+    }
+
     pub async fn get_routine(&self, routine_id: &str) -> Result<RoutineResponse> {
         let api_key = &self.api_key;
         let url = self
@@ -69,21 +98,25 @@ impl HevyClient {
 
         let body = response.text().await?;
 
-        let api_response: RoutineResponse = serde_json::from_str(&body)?;
-        Ok(api_response)
+        let api_response: RoutineApiResponse = serde_json::from_str(&body)
+            .map_err(|e| anyhow::anyhow!("Failed to parse routine response: {}", e))?;
+
+        let routine = api_response.routine;
+        Ok(routine)
     }
 
     pub async fn update_routine(
         &self,
         routine_id: &str,
-        request: UpdateRoutineRequest,
+        request: RoutineUpdate,
     ) -> Result<RoutineResponse> {
         let api_key = &self.api_key;
         let url = self
             .base
             .join(&format!("{}{}", ROUTINES_ENDPOINT, routine_id))?;
 
-        let json_body = serde_json::to_string(&request)?;
+        let api_request = UpdateRoutineRequest { routine: request };
+        let json_body = serde_json::to_string(&api_request)?;
 
         let response = self
             .http
@@ -106,7 +139,13 @@ impl HevyClient {
 
         let body = response.text().await?;
 
-        let api_response: RoutineResponse = serde_json::from_str(&body)?;
-        Ok(api_response)
+        let api_response: RoutineUpdateApiResponse = serde_json::from_str(&body)?;
+        // The API returns an array with one item, so we take the first one
+        let routine = api_response
+            .routine
+            .into_iter()
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("API returned empty routine array"))?;
+        Ok(routine)
     }
 }
