@@ -1,0 +1,7 @@
+services:
+  hevy-progressive-overloader:
+    build: .
+    ports:
+      - "3005:3005"
+    restart: unless-stopped
+    env_file: .env
