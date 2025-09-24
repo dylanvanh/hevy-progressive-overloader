@@ -118,6 +118,12 @@ impl HevyClient {
         let api_request = UpdateRoutineRequest { routine: request };
         let json_body = serde_json::to_string(&api_request)?;
 
+        tracing::debug!(
+            routine_id = %routine_id,
+            request_body = %json_body,
+            "hevy.update_routine.request"
+        );
+
         let response = self
             .http
             .put(url)
@@ -139,8 +145,13 @@ impl HevyClient {
 
         let body = response.text().await?;
 
+        tracing::debug!(
+            routine_id = %routine_id,
+            response_body = %body,
+            "hevy.update_routine.response"
+        );
+
         let api_response: RoutineUpdateApiResponse = serde_json::from_str(&body)?;
-        // The API returns an array with one item, so we take the first one
         let routine = api_response
             .routine
             .into_iter()

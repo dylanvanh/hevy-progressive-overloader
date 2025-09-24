@@ -74,8 +74,7 @@ impl ExerciseSet {
             distance_meters: self.distance_meters,
             duration_seconds: self.duration_seconds,
             custom_metric: self.custom_metric,
-            rep_range: None, // Will be skipped during serialization due to skip_serializing_if
-                             // Note: rpe field is intentionally skipped as it's not allowed in API updates
+            rep_range: None,
         }
     }
 }

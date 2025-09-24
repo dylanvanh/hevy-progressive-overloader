@@ -3,7 +3,7 @@ use axum::{
     routing::{get, post},
 };
 
-use crate::api::webhooks::{AppState, webhook_handler};
+use crate::api::webhooks::{AppState, handle_workout_completion};
 use crate::clients::hevy::HevyClient;
 use crate::config::Config;
 use crate::services::progressive_overload::ProgressiveOverloadService;
@@ -40,12 +40,12 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let app = Router::new()
-        .route("/", get(|| async { "Hello, World!" }))
-        .route("/webhook", post(webhook_handler))
+        .route("/webhook", post(handle_workout_completion))
         .with_state(state.clone());
 
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", config.port)).await?;
     tracing::info!(port = %config.port, "server.listening");
+
     axum::serve(listener, app).await?;
     Ok(())
 }

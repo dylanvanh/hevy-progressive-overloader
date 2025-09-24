@@ -8,9 +8,10 @@ use serde::Deserialize;
 use std::result::Result;
 
 use crate::clients::hevy::HevyClient;
+use crate::clients::models::common::ExerciseForUpdate;
 use crate::config::Config;
 use crate::services::progressive_overload::{
-    ProgressiveOverloadRequest, ProgressiveOverloadResponse, ProgressiveOverloadService,
+    ProgressiveOverloadRequest, ProgressiveOverloadService,
 };
 
 #[derive(Clone)]
@@ -55,7 +56,7 @@ fn authenticate_request(headers: &HeaderMap, state: &AppState) -> Result<(), Sta
     Ok(())
 }
 
-pub async fn webhook_handler(
+pub async fn handle_workout_completion(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(payload): Json<WebhookPayload>,
@@ -91,6 +92,14 @@ pub async fn webhook_handler(
         }
     };
 
+    let routine_exercises_for_update: Vec<ExerciseForUpdate> = routine
+        .exercises
+        .iter()
+        .map(|exercise| exercise.to_update_format())
+        .collect();
+
+    let existing_exercise_count = routine_exercises_for_update.len();
+
     let request = ProgressiveOverloadRequest {
         current_workout: workout.clone(),
         routine,
@@ -110,8 +119,43 @@ pub async fn webhook_handler(
 
     tracing::info!(next_week = %response.week_number, routine_title = %response.routine_title, "progressive_overload.processed");
 
-    // Build a human-readable suggestion string instead of mutating sets/reps
-    let routine_notes = build_routine_notes(&response);
+    let exercise_suggestions = state
+        .progressive_overload_service
+        .build_exercise_suggestions(&response);
+
+    let suggestion_count = exercise_suggestions.len();
+
+    for (template_id, note) in &exercise_suggestions {
+        tracing::debug!(exercise_template_id = %template_id, note = %note, "progressive_overload.exercise_suggestion");
+    }
+
+    tracing::info!(
+        workout_id = %workout.id,
+        routine_id = %workout.routine_id,
+        exercise_count = existing_exercise_count,
+        suggestion_count,
+        "progressive_overload.update_prepared"
+    );
+
+    if suggestion_count == 0 {
+        tracing::warn!(
+            workout_id = %workout.id,
+            routine_id = %workout.routine_id,
+            "progressive_overload.no_suggestions_generated"
+        );
+    }
+
+    let routine_notes_value = None;
+
+    let updated_exercises = routine_exercises_for_update
+        .into_iter()
+        .map(|mut exercise| {
+            if let Some(new_notes) = exercise_suggestions.get(&exercise.exercise_template_id) {
+                exercise.notes = Some(new_notes.clone());
+            }
+            exercise
+        })
+        .collect();
 
     let update_result = state
         .hevy_client
@@ -119,8 +163,8 @@ pub async fn webhook_handler(
             &workout.routine_id,
             crate::clients::models::requests::RoutineUpdate {
                 title: Some(response.routine_title.clone()),
-                notes: Some(routine_notes),
-                exercises: None,
+                notes: routine_notes_value,
+                exercises: Some(updated_exercises),
                 folder_id: None,
             },
         )
@@ -128,78 +172,23 @@ pub async fn webhook_handler(
 
     match update_result {
         Ok(_) => {
-            tracing::info!("routine.update_success");
+            tracing::info!(
+                workout_id = %workout.id,
+                routine_id = %workout.routine_id,
+                suggestion_count,
+                "routine.update_success"
+            );
             StatusCode::OK.into_response()
         }
         Err(e) => {
-            tracing::error!(error = %e, "failed to update routine");
+            tracing::error!(
+                error = %e,
+                workout_id = %workout.id,
+                routine_id = %workout.routine_id,
+                suggestion_count,
+                "failed to update routine"
+            );
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
-}
-
-fn build_routine_notes(response: &ProgressiveOverloadResponse) -> String {
-    fn format_weight(weight: f32) -> String {
-        if (weight.fract()).abs() < f32::EPSILON {
-            format!("{:.0}", weight)
-        } else {
-            format!("{:.1}", weight)
-        }
-    }
-
-    let mut notes = String::new();
-    notes.push_str("AI suggestions for next session (no auto changes)\n");
-    notes.push_str(&format!(
-        "Target Week {} • {}\n\n",
-        response.week_number, response.routine_title
-    ));
-
-    for exercise in &response.updated_exercises {
-        let num_sets = exercise.sets.len();
-
-        let all_reps: Vec<Option<u32>> = exercise.sets.iter().map(|s| s.reps).collect();
-        let all_weights: Vec<Option<f32>> = exercise.sets.iter().map(|s| s.weight_kg).collect();
-
-        let reps_uniform = all_reps.iter().all(|r| r.is_some() && *r == all_reps[0]);
-        let weight_uniform = all_weights
-            .iter()
-            .all(|w| w.is_some() && *w == all_weights[0]);
-
-        let mut line = String::new();
-        line.push_str("- ");
-        line.push_str(&exercise.title);
-        line.push_str(": ");
-
-        if reps_uniform {
-            let reps_val = all_reps[0].unwrap();
-            line.push_str(&format!("{} x {} reps", num_sets, reps_val));
-        } else {
-            let reps_list: Vec<String> = all_reps
-                .into_iter()
-                .map(|r| r.map(|v| v.to_string()).unwrap_or_else(|| "?".to_string()))
-                .collect();
-            line.push_str("Reps per set: ");
-            line.push_str(&reps_list.join(", "));
-        }
-
-        if weight_uniform {
-            if let Some(w) = all_weights[0] {
-                line.push_str(&format!(" @ {}kg", format_weight(w)));
-            }
-        }
-
-        notes.push_str(&line);
-        notes.push('\n');
-
-        if let Some(extra) = &exercise.notes {
-            let trimmed = extra.trim();
-            if !trimmed.is_empty() {
-                notes.push_str("  Note: ");
-                notes.push_str(trimmed);
-                notes.push('\n');
-            }
-        }
-    }
-
-    notes
 }

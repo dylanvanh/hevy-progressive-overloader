@@ -18,14 +18,14 @@ impl Config {
         let gemini_api_key = env::var("GEMINI_API_KEY")?;
         let gemini_model =
             env::var("GEMINI_MODEL").unwrap_or_else(|_| "gemini-2.5-pro".to_string());
-        let base_url =
-            env::var("BASE_URL").unwrap_or_else(|_| "https://api.hevyapp.com".to_string());
+        let hevy_api_url =
+            env::var("HEVY_API_URL").unwrap_or_else(|_| "https://api.hevyapp.com".to_string());
 
         Ok(Self {
             hevy_api_key,
             webhook_token,
             port,
-            hevy_api_url: base_url,
+            hevy_api_url,
             gemini_api_key,
             gemini_model,
         })
