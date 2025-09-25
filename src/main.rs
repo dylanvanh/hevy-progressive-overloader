@@ -15,6 +15,7 @@ mod services;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    println!("Application starting...");
     dotenvy::dotenv().ok();
 
     tracing_subscriber::fmt()
@@ -40,6 +41,7 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let app = Router::new()
+        .route("/hello", get("Hello"))
         .route("/webhook", post(handle_workout_completion))
         .with_state(state.clone());
 
