@@ -17,3 +17,5 @@ regex = "1.10"
 thiserror = "2.0.16"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tokio-cron-scheduler = "0.14.0"
+chrono = "0.4"

@@ -41,7 +41,8 @@ pub struct RoutineUpdateApiResponse {
 #[derive(Debug, Deserialize)]
 pub struct WorkoutsListResponse {
     pub workouts: Vec<WorkoutResponse>,
+    #[allow(dead_code)]
     pub page: i32,
-    pub page_size: i32,
-    pub total_count: i32,
+    #[allow(dead_code)]
+    pub page_count: i32,
 }

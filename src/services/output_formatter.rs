@@ -19,10 +19,10 @@ pub fn build_exercise_suggestions(
         if !working_sets.is_empty() {
             lines.push(format!("{} sets", working_sets.len()));
 
-            if let Some(notes) = &exercise.notes {
-                if let Some(rpe) = extract_rpe_from_notes(notes) {
-                    lines.push(format!("RPE {}", rpe))
-                }
+            if let Some(notes) = &exercise.notes
+                && let Some(rpe) = extract_rpe_from_notes(notes)
+            {
+                lines.push(format!("RPE {}", rpe))
             }
 
             for set in working_sets {

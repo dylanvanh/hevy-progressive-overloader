@@ -151,7 +151,7 @@ impl<'a> DeloadContextBuilder<'a> {
                         }
                     }
 
-                    if (page + 1) * page_size >= workouts_response.total_count {
+                    if workouts_response.workouts.len() < page_size as usize {
                         break;
                     }
                 }
@@ -187,7 +187,7 @@ impl<'a> DeloadContextBuilder<'a> {
                         }
                     }
 
-                    if (page + 1) * page_size >= workouts_response.total_count {
+                    if workouts_response.workouts.len() < page_size as usize {
                         break;
                     }
                 }
