@@ -6,10 +6,10 @@ use crate::clients::models::common::Exercise;
 pub struct WorkoutResponse {
     pub id: String,
     pub title: String,
-    pub routine_id: String,
-    pub description: String,
+    pub routine_id: Option<String>,
+    pub description: Option<String>,
     pub start_time: String,
-    pub end_time: String,
+    pub end_time: Option<String>,
     pub updated_at: String,
     pub created_at: String,
     pub exercises: Vec<Exercise>,

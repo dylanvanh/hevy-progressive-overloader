@@ -98,21 +98,24 @@ pub async fn process_single_workout(state: &AppState, workout_id: String) {
 
     tracing::info!(workout_title = %workout.title, "workout.retrieved");
 
-    if workout.routine_id.is_empty() || workout.routine_id == "null" {
-        tracing::info!("workout.no_routine_associated");
-        // Mark as processed even if no routine
-        state
-            .processed_workout_ids
-            .lock()
-            .unwrap()
-            .insert(workout_id);
-        return;
-    }
+    let routine_id = match workout.routine_id.as_ref() {
+        Some(id) if !id.is_empty() && id != "null" => id,
+        _ => {
+            tracing::info!("workout.no_routine_associated");
+            // Mark as processed even if no routine
+            state
+                .processed_workout_ids
+                .lock()
+                .unwrap()
+                .insert(workout_id);
+            return;
+        }
+    };
 
-    let routine = match state.hevy_client.get_routine(&workout.routine_id).await {
+    let routine = match state.hevy_client.get_routine(routine_id).await {
         Ok(routine) => routine,
         Err(e) => {
-            tracing::error!(error = %e, routine_id = %workout.routine_id, "failed to fetch routine");
+            tracing::error!(error = %e, routine_id = %routine_id, "failed to fetch routine");
             return;
         }
     };
@@ -162,9 +165,9 @@ pub async fn process_single_workout(state: &AppState, workout_id: String) {
         );
     }
 
-    tracing::info!(
+    tracing::debug!(
         workout_id = %workout.id,
-        routine_id = %workout.routine_id,
+        routine_id = ?workout.routine_id,
         exercise_count = existing_exercise_count,
         suggestion_count,
         "progressive_overload.update_prepared"
@@ -173,7 +176,7 @@ pub async fn process_single_workout(state: &AppState, workout_id: String) {
     if suggestion_count == 0 {
         tracing::warn!(
             workout_id = %workout.id,
-            routine_id = %workout.routine_id,
+            routine_id = ?workout.routine_id,
             "progressive_overload.no_suggestions_generated"
         );
     }
@@ -193,7 +196,7 @@ pub async fn process_single_workout(state: &AppState, workout_id: String) {
     let update_result = state
         .hevy_client
         .update_routine(
-            &workout.routine_id,
+            routine_id,
             crate::clients::models::requests::RoutineUpdate {
                 title: Some(response.routine_title.clone()),
                 notes: routine_notes_value,
@@ -207,7 +210,7 @@ pub async fn process_single_workout(state: &AppState, workout_id: String) {
         Ok(_) => {
             tracing::info!(
                 workout_id = %workout.id,
-                routine_id = %workout.routine_id,
+                routine_id = %routine_id,
                 suggestion_count,
                 "routine.update_success"
             );
@@ -216,7 +219,7 @@ pub async fn process_single_workout(state: &AppState, workout_id: String) {
             tracing::error!(
                 error = %e,
                 workout_id = %workout.id,
-                routine_id = %workout.routine_id,
+                routine_id = %routine_id,
                 suggestion_count,
                 "failed to update routine"
             );

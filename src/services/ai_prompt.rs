@@ -8,7 +8,11 @@ use crate::services::deload::DeloadContext;
 pub fn format_workout_for_prompt(workout: &WorkoutResponse) -> String {
     let mut output = format!("Workout Title: {}\n", workout.title);
     output.push_str(&format!("Start Time: {}\n", workout.start_time));
-    output.push_str(&format!("End Time: {}\n", workout.end_time));
+    if let Some(end_time) = &workout.end_time {
+        output.push_str(&format!("End Time: {}\n", end_time));
+    } else {
+        output.push_str("End Time: (in progress)\n");
+    }
     output.push_str("\nExercises:\n");
     output.push_str(&format_exercise_list(&workout.exercises));
     output
